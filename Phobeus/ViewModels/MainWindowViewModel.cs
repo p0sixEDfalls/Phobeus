@@ -59,13 +59,21 @@ namespace Phobeus.ViewModels
         public string CurrentFromCurrency
         {
             get => currentFromCurrency;
-            set => this.RaiseAndSetIfChanged(ref currentFromCurrency, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref currentFromCurrency, value);
+                Convert();
+            }
         }
 
         public string CurrentToCurrency
         {
             get => currentToCurrency;
-            set => this.RaiseAndSetIfChanged(ref currentToCurrency, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref currentToCurrency, value);
+                Convert();
+            }
         }
 
         public string CurrencyInputValue
@@ -82,9 +90,9 @@ namespace Phobeus.ViewModels
 
         private readonly double maxValue = 9999999999999.0;
 
-        private bool isNeedToCalculate;
+        private const string outputAsResult = "OUTPUT AS RESULT";
 
-        private bool isNeedToUseExistOutValue;
+        private const string inputAsResult = "INPUT AS RESULT";
 
         private string action;
 
@@ -116,8 +124,10 @@ namespace Phobeus.ViewModels
 
         public MainWindowViewModel()
         {
-            inputText = "";
-            outputText = "";
+            inputText = "0";
+            outputText = "0";
+            outputValue = "0";
+            action = inputAsResult;
 
             AddInputDigitCommand = ReactiveCommand.Create<string>(AddInputDigit);
             ExecuteDigitCommand = ReactiveCommand.Create<string>(ExecuteCommand);
@@ -131,67 +141,62 @@ namespace Phobeus.ViewModels
 
         private void ExecuteCommand(string obj)
         {
-            if (obj == "=")
+            double result;
+            string error;
+
+            switch (obj)
             {
-                isNeedToUseExistOutValue = true;
-                Calculate();
-            }
-            else if (obj == "d")
-            {
-                DeleTeLastInputChar();
-            }
-            else if (obj == ".")
-            {
-                AddComma();
-            }
-            else if (obj == "C")
-            {
-                Clear();
-            }
-            else if (obj == "+/-")
-            {
-                ChangeSign();
-                return;
-            }
-            else
-            {
-                if (InputText == "0")
-                {
+                case "+":
+                case "-":
+                case "x":
+                case "/":
+                case "%":
+                    result = Calculate();
+                    error = CheckCalculatedValue(result);
+
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        Clear();
+                        OutputText = error;
+                        break;
+                    }
+
+                    outputValue = result.ToString("0.######");
+                    OutputText = $"{outputValue} {obj}";
                     action = obj;
-                    OutputText = $"{outputValue} {action}";
-                }
-                else
-                {
-                    if (isNeedToCalculate)
-                    {
-                        Calculate();
-                        action = obj;
-                        outputValue = OutputText;
-                        OutputText += $" {obj}";
-                        isNeedToCalculate = true;
-                    }
-                    else
-                    {
-                        isNeedToCalculate = true;
-                        action = obj;
+                    NullInputText();
+         
+                    break;
+                case "d":
+                    Clear();
+                    break;
+                case "C":
+                    DeleTeLastInputChar();
+                    break;
+                case ",":
+                    AddComma();
+                    break;
+                case "+/-":
+                    ChangeSign();
+                    break;
+                case "=":
+                    result = Calculate();
+                    error = CheckCalculatedValue(result);
 
-                        if (isNeedToUseExistOutValue)
-                        {
-                            outputValue = OutputText;
-                            OutputText += $" {action}";
-                        }
-                        else
-                        {
-                            outputValue = InputText;
-                            OutputText = $"{InputText} {action}";
-                        }
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        Clear();
+                        OutputText = error;
+                        break;
                     }
 
-                    isNeedToUseExistOutValue = false;
-                }
+                    outputValue = result.ToString("0.######");
+                    OutputText = outputValue;
+                    action = outputAsResult;
+                    NullInputText();
+
+                    break;
             }
-
-            //InputText = "0";
         }
 
         private void AddInputDigit(string obj)
@@ -204,7 +209,7 @@ namespace Phobeus.ViewModels
                 }
                 else
                 {
-                    string[] levels = InputText.Split('.');
+                    string[] levels = InputText.Split(',');
 
                     if (levels.Length == 1)
                     {
@@ -226,7 +231,7 @@ namespace Phobeus.ViewModels
                 }
                 else
                 {
-                    string[] levels = CurrencyInputValue.Split('.');
+                    string[] levels = CurrencyInputValue.Split(',');
 
                     if (levels.Length == 1)
                     {
@@ -244,49 +249,55 @@ namespace Phobeus.ViewModels
             }                        
         }
 
-        private void Calculate()
+        private double Calculate()
         {
-            isNeedToCalculate = false;
-
-            double input = double.Parse(InputText, negativeFormat);
-            double output = double.Parse(outputValue, negativeFormat);
-            double result = 0.0;
+            double input = double.Parse(InputText.Replace(',', '.'), negativeFormat);
+            double output = double.Parse(outputValue.Replace(',', '.'), negativeFormat);
+            double result = 0;
 
             switch (action)
             {
                 case "+":
                     result = input + output;
                     break;
-
                 case "-":
                     result = output - input;
                     break;
-
                 case "x":
                     result = output * input;
                     break;
-
                 case "/":
                     result = output / input;
                     break;
+                case "%":
+                    result = (input / output) * 100;
+                    break;
+                case inputAsResult:
+                    result = input;
+                    break;
+                case outputAsResult:
+                    result = output;
+                    break;
             }
+
+            return result;
+        }
+
+        private string CheckCalculatedValue(double result)
+        {
+            string error = null;
 
             if (double.IsInfinity(result))
             {
-                Clear();
-                OutputText = "Devide by zero";
-                return;
-            }           
+                error = "Devide by zero";
+            }
 
             if (result > maxValue)
             {
-                Clear();
-                OutputText = "Out of range";
+                error = "Out of range";
             }
-            else
-            {
-                OutputText = result.ToString("0.######");
-            }
+
+            return error;
         }
 
         private void Convert()
@@ -300,24 +311,27 @@ namespace Phobeus.ViewModels
                 InputText = InputText.Remove(InputText.Length - 1);
 
             if (string.IsNullOrEmpty(InputText))
-                InputText = "0";
+                NullInputText();
         }
 
         private void AddComma()
         {
             if (string.IsNullOrEmpty(InputText))
             {
-                InputText = "0.";
+                InputText = "0,";
             }
             else
             {
-                if (!InputText.Contains('.'))
-                    InputText += ".";
+                if (!InputText.Contains(','))
+                    InputText += ",";
             }
         }
 
         private void ChangeSign()
         {
+            if (InputText == "0" || action == "%")
+                return;
+
             if (InputText.Contains("-"))
                 InputText = InputText.Remove(0, 1);
             else
@@ -326,12 +340,12 @@ namespace Phobeus.ViewModels
 
         private void Clear()
         {
-            InputText = "0";
-            OutputText = string.Empty;
-            action = string.Empty;
-            isNeedToCalculate = false;
-            isNeedToUseExistOutValue = false;
+            NullInputText();
+            OutputText = "0";
+            action = inputAsResult;
         }
+
+        private void NullInputText() => InputText = "0";
 
         public void ProcessKeyInput(object obj, KeyEventArgs args)
         {
@@ -348,7 +362,7 @@ namespace Phobeus.ViewModels
                             DeleTeLastInputChar();
                             break;
 
-                        case Key.OemPeriod:
+                        /*case Key.OemPeriod:
                             AddComma();
                             break;
 
@@ -370,7 +384,7 @@ namespace Phobeus.ViewModels
 
                         case Key.OemPlus:
                             ExecuteCommand("=");
-                            break;
+                            break;*/
                     }
                 }
             }
@@ -384,7 +398,7 @@ namespace Phobeus.ViewModels
 
         public void ProcessKeyInputCurrency(object obj, SelectionChangedEventArgs args)
         {
-            switch ((args.AddedItems[0] as TabItem).Header)
+            switch ((args.AddedItems[0] as TabItem)?.Header)
             {
                 case "Calculator":
                     currentTab = CurrentTab.Calculator;
