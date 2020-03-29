@@ -161,7 +161,7 @@ namespace Phobeus.ViewModels
                         break;
                     }
 
-                    outputValue = result.ToString("0.######");
+                    outputValue = result.ToString("0.######").Replace('.', ',');
                     OutputText = $"{outputValue} {obj}";
                     action = obj;
                     NullInputText();
@@ -190,7 +190,7 @@ namespace Phobeus.ViewModels
                         break;
                     }
 
-                    outputValue = result.ToString("0.######");
+                    outputValue = result.ToString("0.######").Replace('.', ',');
                     OutputText = outputValue;
                     action = outputAsResult;
                     NullInputText();
@@ -287,9 +287,10 @@ namespace Phobeus.ViewModels
         {
             string error = null;
 
-            if (double.IsInfinity(result))
+            if (double.IsInfinity(result) || double.IsNaN(result))
             {
                 error = "Devide by zero";
+                return error;
             }
 
             if (result > maxValue)
@@ -307,11 +308,22 @@ namespace Phobeus.ViewModels
 
         private void DeleTeLastInputChar()
         {
-            if (InputText.Length > 0)
-                InputText = InputText.Remove(InputText.Length - 1);
+            if (currentTab == CurrentTab.Calculator)
+            {
+                if (InputText.Length > 0)
+                    InputText = InputText.Remove(InputText.Length - 1);
 
-            if (string.IsNullOrEmpty(InputText))
-                NullInputText();
+                if (string.IsNullOrEmpty(InputText))
+                    NullInputText();
+            }
+            else if (currentTab == CurrentTab.Converter)
+            {
+                if (CurrencyInputValue.Length > 0)
+                    CurrencyInputValue = CurrencyInputValue.Remove(CurrencyInputValue.Length - 1);
+
+                if (string.IsNullOrEmpty(CurrencyInputValue))
+                    NullInputText();
+            }
         }
 
         private void AddComma()
@@ -345,7 +357,15 @@ namespace Phobeus.ViewModels
             action = inputAsResult;
         }
 
-        private void NullInputText() => InputText = "0";
+        private void NullInputText()
+        {
+            if (currentTab == CurrentTab.Calculator)
+                InputText = "0";
+            else if (currentTab == CurrentTab.Converter)
+                CurrencyInputValue = "0";
+
+        }
+            
 
         public void ProcessKeyInput(object obj, KeyEventArgs args)
         {
@@ -392,6 +412,12 @@ namespace Phobeus.ViewModels
             {
                 if (acceptedKeys.Contains(args.Key))
                     AddInputDigit(args.Key.ToString().Remove(0, 1));
+
+                if (args.Key == Key.Back)
+                {
+                    DeleTeLastInputChar();
+                    Convert();
+                }                    
             }          
         }
 
