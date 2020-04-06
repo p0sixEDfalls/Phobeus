@@ -27,16 +27,16 @@ namespace Phobeus.ViewModels
 
         private Dictionary<string, double> converterValues = new Dictionary<string, double>()
         {
-            ["USDRUB"] = 63.30,
-            ["USDEUR"] = 0.92,
+            ["USDRUB"] = 0.015625,
+            ["USDEUR"] = 1.6,
             ["USDUSD"] = 1.0,      
 
-            ["RUBUSD"] = 0.016,
-            ["RUBEUR"] = 0.015,
+            ["RUBUSD"] = 64.0,
+            ["RUBEUR"] = 80.0,
             ["RUBRUB"] = 1.0,
 
-            ["EURUSD"] = 1.08,
-            ["EURRUB"] = 68.62,
+            ["EURUSD"] = 0.625,
+            ["EURRUB"] = 0.0125,
             ["EUREUR"] = 1.0,
         };
 
